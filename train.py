@@ -118,14 +118,20 @@ def trainer(model, optimizer, train_loader, test_loader, mode, epochs=5):
     return model, tracker
 
 
-def produce_preds_timing(model, loader, cells, drugs):
+def produce_preds_timing(model, loader, cells, drugs, mode):
     preds = []
     values = []
     model.eval()
     with torch.no_grad():
         for (rnaseq, drugfeats, value) in loader:
-            rnaseq, drugfeats, value = rnaseq.to(device), drugfeats.to(device), value.to(device)
-            pred = model(rnaseq, drugfeats)
+            if mode == 'desc' or mode == 'image' or mode == 'smiles':
+                rnaseq, drugfeats, value = rnaseq.to(device), drugfeats.to(device), value.to(device)
+                pred = model(rnaseq, drugfeats)
+            else:
+                rnaseq, value = rnaseq.to(device), value.to(device)
+                g = drugfeats
+                h = g.ndata['atom_features'].to(device)
+                pred = model(rnaseq, g, h)
             preds.append(pred.cpu().detach().numpy())
             values.append(value.cpu().detach().numpy())
 
@@ -291,7 +297,7 @@ if __name__ == '__main__':
     print("Finished training, now")
 
     print("Running evaluation for surface plots...")
-    res = produce_preds_timing(model, test_loader, cells[test_idx], drugs[test_idx])
+    res = produce_preds_timing(model, test_loader, cells[test_idx], drugs[test_idx], args.mode)
     rds_model = rds.RegressionDetectionSurface(percent_min=-3)
     rds_model.compute(res[1], res[0], stratify=res[2], samples=30)
     rds_model.plot(save_file=args.metric_plot_prefix + "rds_on_cell.png",
