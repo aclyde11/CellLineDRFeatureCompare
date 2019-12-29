@@ -44,7 +44,7 @@ def make_generator(args):
                 yield tokens
 
     for source, (source_args, files) in choices.items():
-        args = get_args(*source_args)
+        args = get_args(source_args)
         for file in files:
             with open(data_path + file, 'r') as fin:
                 for cnt, line in tqdm(enumerate(fin)):
