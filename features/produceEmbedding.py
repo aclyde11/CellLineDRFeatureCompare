@@ -20,12 +20,12 @@ def get_args(st=None):
 
 data_path = '/vol/ml/candle_aesp/databases/'
 choices = {
-    'ENAMINE': ('--header -c 0 -s "\t" -i tmp', ['ENAMIN/Enamine_REAL_full_smiles_Part_01.smiles',
+    'ENAMINE': (True, '\t', 0, ['ENAMIN/Enamine_REAL_full_smiles_Part_01.smiles',
                                                  # 'ENAMIN/Enamine_REAL_full_smiles_Part_02.smiles',
                                                  'ENAMIN/Enamine_REAL_full_smiles_Part_03.smiles',
                                                  # 'ENAMIN/Enamine_REAL_full_smiles_Part_04.smiles'
                                                  ]),
-    'ZINC': ('-c 0 -s " " -i tmp', ['ZINC/6_p0.smi', 'ZINC/6_p1.smi', 'ZINC/6_p2.smi', 'ZINC/6_p3.smi']),
+    'ZINC': (False, ' ', 0, ['ZINC/6_p0.smi', 'ZINC/6_p1.smi', 'ZINC/6_p2.smi', 'ZINC/6_p3.smi']),
 }
 
 
@@ -43,14 +43,13 @@ def make_generator(args):
                 tokens = smi_tokenizer(line.split(args.s)[args.c])
                 yield tokens
 
-    for source, (source_args, files) in choices.items():
-        args = get_args(source_args)
+    for source, (header, sep, c, files) in choices.items():
         for file in files:
             with open(data_path + file, 'r') as fin:
                 for cnt, line in tqdm(enumerate(fin)):
-                    if cnt == 0 and args.header:
+                    if cnt == 0 and header:
                         continue
-                    tokens = smi_tokenizer(line.split(args.s)[args.c])
+                    tokens = smi_tokenizer(line.split(sep)[c])
                     yield tokens
 
 
