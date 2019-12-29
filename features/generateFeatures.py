@@ -10,6 +10,7 @@ from rdkit.Chem.Draw import rdMolDraw2D
 from torchvision.transforms import ToTensor
 
 from features import utils as featmaker
+from features.smiles import smi_tokenizer
 from features.utils import Invert
 
 smiles_vocab = None  # load charater to int function
@@ -43,7 +44,17 @@ def smile_to_smile_to_image(mol, molSize=(128, 128), kekulize=True, mol_name='')
     image = Image.open(io.BytesIO(cairosvg.svg2png(bytestring=svg, parent_width=100, parent_height=100,
                                                    scale=1)))
     image.convert('RGB')
-    return ToTensor()(Invert()(image))
+    return ToTensor()(Invert()(image)).numpy()
+
+
+def smiles_to_smiles(smi, vocab, maxlen=320):
+    t = [vocab[i] for i in smi_tokenizer(smi)]
+    if len(t) >= maxlen:
+        t = t[:maxlen]
+    else:
+        t = t + (maxlen - len(t)) * [vocab[' ']]
+    t = np.array(t).flatten()
+    return t
 
 
 def smiles_to_graph(mol):

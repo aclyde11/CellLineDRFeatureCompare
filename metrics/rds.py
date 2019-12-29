@@ -4,11 +4,12 @@ from tqdm import tqdm
 
 
 def erf(x_pred, x_true, r, y, indexs_pred, indexs_true):
-    return len(set(indexs_pred[:int(r * x_pred.shape[0])]).intersection(set(indexs_true[:int(y * x_pred.shape[0])])))
+    return len(
+        set(indexs_pred[:int(r * indexs_pred.shape[0])]).intersection(set(indexs_true[:int(y * indexs_pred.shape[0])])))
 
 
 def erfmax(x_pred, x_true, r, y, indexs_pred, indexs_true):
-    return (int(min(r, y) * x_pred.shape[0]))
+    return (int(min(r, y) * indexs_pred.shape[0]))
 
 
 def nefr(*i):
@@ -27,7 +28,7 @@ def nefrcurve(points_, p, t, min_sample=-3, reverse_sort=False):
 
     xx, yy = np.meshgrid(xs, ys)
     zz = np.zeros(xx.shape)
-    for i in tqdm(range(points_)):
+    for i in range(points_):
         for j in range(points_):
             zz[i, j] = nefr(p, t, xx[i, j], yy[i, j], indexs_pred, indexs_true)
 
@@ -43,17 +44,19 @@ class RegressionDetectionSurface:
 
     def compute(self, trues, preds, stratify=None, samples=30):
         self.stratify = stratify is not None
-        if self.stratify:
+        if not self.stratify:
             self.nefr = nefrcurve(samples, preds, trues, self.min)
         else:
             x, y, z = [], [], []
             u, indices = np.unique(stratify, return_inverse=True)
-            for i in u.shape:
+            for i in tqdm(range(u.shape[0])):
                 locs = np.argwhere(indices == i).flatten()
                 preds_strat = preds[locs]
                 trues_strat = trues[locs]
-
-                x_2, y_2, z_2 = nefrcurve(30, preds_strat, trues_strat)
+                try:
+                    x_2, y_2, z_2 = nefrcurve(30, preds_strat, trues_strat)
+                except ZeroDivisionError:
+                    continue
                 x.append(x_2)
                 y.append(y_2)
                 z.append(z_2)

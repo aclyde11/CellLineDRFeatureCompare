@@ -6,7 +6,7 @@ class ImageModel(nn.Module):
     def __init__(self, flen, dropout_rate, intermediate_rep=128):
         super(ImageModel, self).__init__()
         self.feature_length = flen
-        resnet18 = models.resnet18(pretrained=True)
+        resnet18 = models.resnet34(pretrained=True)
         self.resnet18 = nn.Sequential(*list(resnet18.children())[:-1])
 
         self.model = nn.Sequential(

@@ -43,8 +43,8 @@ class PytorchHistory:
     def plot_loss(self, save_file=None, title='Loss', figsize=(8, 5)):
         plt.figure(figsize=figsize)
 
-        plt.plot(list(range(len(self.train_loss))), title='Train Loss')
-        plt.plot(list(range(len(self.test_loss))), title='Test Loss')
+        plt.plot(list(range(len(self.train_loss))), self.train_loss, label='Train Loss')
+        plt.plot(list(range(len(self.test_loss))), self.test_loss, label='Test Loss')
 
         plt.title(title)
         plt.xlabel("Epoch")
@@ -58,8 +58,8 @@ class PytorchHistory:
     def plot_metric(self, save_file=None, title='Loss', figsize=(8, 5)):
         plt.figure(figsize=figsize)
 
-        plt.plot(list(range(len(self.train_loss))), title='Train r2')
-        plt.plot(list(range(len(self.test_loss))), title='Test r2')
+        plt.plot(list(range(len(self.train_r2))), self.train_r2, label='Train r2')
+        plt.plot(list(range(len(self.test_r2))), self.test_r2, label='Test r2')
 
         plt.title(title)
         plt.xlabel("Epoch")

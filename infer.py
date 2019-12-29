@@ -8,7 +8,8 @@ import pandas as pd
 import torch
 from tqdm import tqdm
 
-from features.generateFeatures import smiles_to_graph, smile_to_smile_to_image, smile_to_mordred
+from features.smiles import smi_tokenizer, get_vocab
+from features.generateFeatures import smiles_to_graph, smile_to_smile_to_image, smile_to_mordred, smiles_to_smiles
 
 if torch.cuda.is_available():
     import torch.backends.cudnn
@@ -18,7 +19,7 @@ if torch.cuda.is_available():
 
 def get_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--mode', choices=['graph', 'image', 'desc'], required=True,
+    parser.add_argument('--mode', choices=['graph', 'image', 'desc', 'smiles'], required=True,
                         help='model and feature style to use.')
     parser.add_argument('-w', type=int, default=8, help='number of workers for data loaders to use.')
     parser.add_argument('-g', type=int, default=1, help='number of gpu workers for inference to use.')
@@ -37,12 +38,13 @@ def get_feature_prodcer(mode):
     if mode == 'desc':
         with open("data/imputer.pkl", 'rb') as f:
             imps = pickle.load(f)
-        args = (imps)
-        return smile_to_mordred, args
+        return smile_to_mordred, (imps,)
     elif mode == 'graph':
-        return smiles_to_graph
+        return smiles_to_graph, tuple()
     elif mode == 'image':
-        return smile_to_smile_to_image
+        return smile_to_smile_to_image, tuple()
+    elif mode == 'smiles':
+        return smiles_to_smiles, (get_vocab(), )
 
 
 '''
@@ -96,7 +98,7 @@ def infer(feature_queue, out_queue, model_path, cuda_id, mode, smiles_counter, s
                 if res is not None:
                     smiles_counter.value += 1
                     drug_features, cell_features, smile, name, cell_names = res
-                    if mode == 'desc' or mode == 'image':
+                    if mode == 'desc' or mode == 'image' or mode == 'smiles':
                         drug_features = drug_features.to(device)
                         cell_features = cell_features.to(device)
                         preds = model(cell_features, drug_features)
