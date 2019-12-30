@@ -57,7 +57,7 @@ def feature_worker(args, smile_queue, feature_queue, cell_features, cell_names, 
     iter_counter = 0
     feature_producer, argsfp = get_feature_prodcer(args.mode)
 
-    while not stop.value or not smiles_queue.empty():
+    while not stop.value or not smile_queue.empty():
         while not smile_queue.empty():
             res = smile_queue.get(timeout=10)
             if res is not None:
