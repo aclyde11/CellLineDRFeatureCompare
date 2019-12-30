@@ -3,7 +3,7 @@ import shlex
 from gensim.models import Word2Vec
 from smiles import smi_tokenizer, get_vocab
 from tqdm import tqdm
-
+import numpy as np
 
 def get_args(st=None):
     parser = argparse.ArgumentParser()
@@ -69,6 +69,10 @@ if __name__ == '__main__':
         model.min_alpha = model.alpha  # fix the learning rate, no decay
         model.init_sims(replace=True)
 
-    for key, val in model.wv.vocab.items():
-        print(key)  # this is the word
-    print("vocab length", len(model.wv.vocab))
+    embeds = []
+    with open("data/vocab.txt", 'w') as f:
+        for key, val in enumerate(model.wv.vocab.items()):
+            f.write(str(key) + "\n")
+            embeds.append(model[key].flatten())
+    embeds = np.stack(embeds)
+    np.save("embeds.npy", embeds)
