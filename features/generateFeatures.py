@@ -23,6 +23,7 @@ def smile_to_mordred(smi, imputer_dict=None):
     res = calc(smi)
     res = np.array(list(res.values())).reshape(1, -1)
     if imputer_dict is not None:
+        imputer_dict = imputer_dict[0]
         res = imputer_dict['scaler'].transform(imputer_dict['imputer'].transform(res))
     return res.flatten().astype(np.float32)
 
