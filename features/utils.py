@@ -169,8 +169,8 @@ def get_dgl_graph_batch(smiles, size, add_edge_data=False):
 
     for i, atom in enumerate(mol.GetAtoms()):
         ats = atom_features(atom)
+        data = {'atom_features': torch.from_numpy(ats).view(1, -1)}
         for g in gs:
-            data = {'atom_features': torch.from_numpy(ats).view(1, -1)}
             g.add_nodes(1, data=data)
 
     for a1 in range(n_atoms):
@@ -181,8 +181,8 @@ def get_dgl_graph_batch(smiles, size, add_edge_data=False):
 
             if add_edge_data:
                 f_bond = bond_features(bond)
+                d = {'edge_features': torch.from_numpy(f_bond).view(1, -1)}
                 for g in gs:
-                    d = {'edge_features': torch.from_numpy(f_bond).view(1, -1)}
                     g.add_edge(a1, a2, data=d)
                     g.add_edge(a2, a1, data=d)
             else:

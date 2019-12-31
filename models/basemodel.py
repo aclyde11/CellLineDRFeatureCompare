@@ -54,9 +54,7 @@ class BaseModel(nn.Module):
         )
 
     def forward(self, rnafeatures, *args):
-        print('origin shape', rnafeatures.shape)
         drug_latent = self.feature_model(*args)
         rnafeatures = self.rnamodel(rnafeatures)
-        print(drug_latent.shape, rnafeatures.shape)
         x = torch.cat([rnafeatures, drug_latent], dim=-1)
         return self.basemodel(x)

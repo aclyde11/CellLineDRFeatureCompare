@@ -9,7 +9,7 @@ import pandas as pd
 import torch
 from tqdm import tqdm
 
-from features.generateFeatures import smiles_to_graph, smile_to_smile_to_image, smile_to_mordred, smiles_to_smiles
+from features.generateFeatures import smiles_to_graph_batch, smile_to_smile_to_image, smile_to_mordred, smiles_to_smiles
 from features.smiles import get_vocab
 
 DEBUG = False
@@ -42,7 +42,7 @@ def get_feature_prodcer(mode):
             imps = pickle.load(f)
         return smile_to_mordred, (imps,)
     elif mode == 'graph':
-        return smiles_to_graph, tuple()
+        return smiles_to_graph_batch, tuple()
     elif mode == 'image':
         return smile_to_smile_to_image, tuple()
     elif mode == 'smiles':
