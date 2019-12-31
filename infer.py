@@ -71,7 +71,7 @@ def feature_worker(args, smile_queue, feature_queue, cell_features, cell_names, 
                     continue
                 if args.mode == 'graph':
                     feature_queue.put(
-                        (dgl.batch(60 * [drug_features]),
+                        (dgl.batch(int(cell_features.shape[0]) * [drug_features]),
                          torch.from_numpy(cell_features).float(),
                          smile, drug_name, cell_names))
                 else:
