@@ -79,6 +79,11 @@ def feature_worker(args, smile_queue, feature_queue, cell_features, cell_names, 
                         (drug_features,
                          torch.from_numpy(cell_features).float(),
                          smile, drug_name, cell_names))
+                if args.mode == 'image':
+                    feature_queue.put(
+                        (torch.from_numpy(drug_features).float().unsqueeze(0).repeat([cell_features.shape[0], 1, 1, 1]),
+                         torch.from_numpy(cell_features).float(),
+                         smile, drug_name, cell_names))
                 else:
                     feature_queue.put(
                         (torch.from_numpy(drug_features).float().unsqueeze(0).repeat([cell_features.shape[0], 1]),
