@@ -3,13 +3,14 @@ import multiprocessing
 import pickle
 import time
 
+import dgl
 import numpy as np
 import pandas as pd
 import torch
 from tqdm import tqdm
 
-from features.smiles import smi_tokenizer, get_vocab
 from features.generateFeatures import smiles_to_graph, smile_to_smile_to_image, smile_to_mordred, smiles_to_smiles
+from features.smiles import get_vocab
 
 if torch.cuda.is_available():
     import torch.backends.cudnn
@@ -44,7 +45,7 @@ def get_feature_prodcer(mode):
     elif mode == 'image':
         return smile_to_smile_to_image, tuple()
     elif mode == 'smiles':
-        return smiles_to_smiles, (get_vocab(), )
+        return smiles_to_smiles, (get_vocab(),)
 
 
 '''
@@ -68,10 +69,16 @@ def feature_worker(args, smile_queue, feature_queue, cell_features, cell_names, 
                 except AssertionError:
                     print("Smile error....")
                     continue
-                feature_queue.put(
-                    (torch.from_numpy(drug_features).float().unsqueeze(0).repeat([cell_features.shape[0], 1]),
-                     torch.from_numpy(cell_features).float(),
-                     smile, drug_name, cell_names))
+                if args.mode == 'graph':
+                    feature_queue.put(
+                        (dgl.batch(60 * [drug_features]),
+                         torch.from_numpy(cell_features).float(),
+                         smile, drug_name, cell_names))
+                else:
+                    feature_queue.put(
+                        (torch.from_numpy(drug_features).float().unsqueeze(0).repeat([cell_features.shape[0], 1]),
+                         torch.from_numpy(cell_features).float(),
+                         smile, drug_name, cell_names))
             iter_counter += 1
             if iter_counter % 100 == 0:
                 print(id, "did ", iter_counter)
