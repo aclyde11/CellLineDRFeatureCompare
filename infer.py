@@ -71,7 +71,7 @@ def feature_worker(args, smile_queue, feature_queue, cell_features, cell_names, 
                     print("Smile error....")
                     continue
                 if args.mode == 'graph':
-                    drug_features = [drug_features.copy() for i in range(cell_features.shape[0])]
+                    drug_features = [feature_producer(smile, argsfp) for i in range(cell_features.shape[0])]
                     feature_queue.put(
                         (dgl.batch(drug_features),
                          torch.from_numpy(cell_features).float(),

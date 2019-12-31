@@ -1,7 +1,7 @@
 import shutil
 from argparse import Namespace
 from typing import List
-
+from functools import lru_cache
 import dgl
 import numpy as np
 import torch
@@ -39,15 +39,6 @@ THREE_D_DISTANCE_BINS = list(range(0, THREE_D_DISTANCE_MAX + 1, THREE_D_DISTANCE
 ATOM_FDIM = sum(len(choices) + 1 for choices in ATOM_FEATURES.values()) + 2
 BOND_FDIM = 14
 
-# Memoization
-SMILES_TO_GRAPH = {}
-
-
-def clear_cache():
-    """Clears featurization cache."""
-    global SMILES_TO_GRAPH
-    SMILES_TO_GRAPH = {}
-
 
 def get_atom_fdim(args: Namespace) -> int:
     """
@@ -82,7 +73,7 @@ def onek_encoding_unk(value: int, choices: List[int]) -> List[int]:
 
     return encoding
 
-
+@lru_cache(maxsize=None)
 def atom_features(atom: Chem.rdchem.Atom, functional_groups: List[int] = None):
     """
     Builds a feature vector for an atom.
@@ -103,7 +94,7 @@ def atom_features(atom: Chem.rdchem.Atom, functional_groups: List[int] = None):
         features += functional_groups
     return np.array(features, dtype=np.float32)
 
-
+@lru_cache(maxsize=None)
 def bond_features(bond: Chem.rdchem.Bond):
     """
     Builds a feature vector for a bond.
@@ -128,7 +119,7 @@ def bond_features(bond: Chem.rdchem.Bond):
     return np.array(fbond, dtype=np.float32)
 
 
-def get_dgl_graph(smiles):
+def get_dgl_graph(smiles, add_edge_data=False):
     """
        Computes the graph structure and featurization of a molecule.
 
@@ -147,19 +138,20 @@ def get_dgl_graph(smiles):
     for i, atom in enumerate(mol.GetAtoms()):
         g.add_nodes(1, data={'atom_features': torch.from_numpy(atom_features(atom)).view(1, -1)})
 
-    # Get bond features
     for a1 in range(n_atoms):
         for a2 in range(a1 + 1, n_atoms):
             bond = mol.GetBondBetweenAtoms(a1, a2)
-
             if bond is None:
                 continue
 
-            f_bond = bond_features(bond)
-
-            d = {'edge_features': torch.from_numpy(f_bond).view(1, -1)}
-            g.add_edge(a1, a2, data=d)
-            g.add_edge(a2, a1, data=d)
+            if add_edge_data:
+                f_bond = bond_features(bond)
+                d = {'edge_features': torch.from_numpy(f_bond).view(1, -1)}
+                g.add_edge(a1, a2, data=d)
+                g.add_edge(a2, a1, data=d)
+            else:
+                g.add_edge(a1, a2)
+                g.add_edge(a2, a1)
     return g
 
 
