@@ -110,10 +110,10 @@ def infer(feature_queue, out_queue, model_path, cuda_id, mode, smiles_counter, s
                         cell_features = cell_features.to(device)
                         preds = model(cell_features, drug_features)
                     else:
-                        rnaseq, value = rnaseq.to(device), value.to(device)
+                        cell_features = cell_features.to(device)
                         g = drug_features
                         h = g.ndata['atom_features'].to(device)
-                        preds = model(rnaseq, g, h)
+                        preds = model(cell_features, g, h)
                     preds = preds.detach().cpu().numpy().flatten()
                     out_queue.put({'preds': preds, 'smile': smile, 'drug_name': name, 'cell_names': cell_names})
                 iter_counter += 1
