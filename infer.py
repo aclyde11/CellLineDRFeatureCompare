@@ -44,7 +44,7 @@ def get_feature_prodcer(mode):
     elif mode == 'graph':
         return smiles_to_graph_batch, tuple()
     elif mode == 'image':
-        return smile_to_smile_to_image, tuple()
+        return smile_to_smile_to_image, (128, 128)
     elif mode == 'smiles':
         return smiles_to_smiles, (get_vocab(),)
 
