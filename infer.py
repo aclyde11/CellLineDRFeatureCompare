@@ -216,8 +216,7 @@ if __name__ == '__main__':
                   "OUT QUEUE empty", out_queue.empty()
                   )
         time.sleep(10)
-    workers_stop.value = True
-    print("Turning off feature workers.")
+
 
     while not feature_queue.empty():
         try:
@@ -234,6 +233,8 @@ if __name__ == '__main__':
     print("Turning off gpu worker.")
     gpu_stop.value = True
     end_time = time.time()
+    workers_stop.value = True
+    print("Turning off feature workers.")
 
     while not out_queue.empty():
         try:
