@@ -12,6 +12,7 @@ from tqdm import tqdm
 from features.generateFeatures import smiles_to_graph, smile_to_smile_to_image, smile_to_mordred, smiles_to_smiles
 from features.smiles import get_vocab
 
+DEBUG = False
 if torch.cuda.is_available():
     import torch.backends.cudnn
 
@@ -70,8 +71,9 @@ def feature_worker(args, smile_queue, feature_queue, cell_features, cell_names, 
                     print("Smile error....")
                     continue
                 if args.mode == 'graph':
+                    drug_features = [drug_features.copy() for i in range(cell_features.shape[0])]
                     feature_queue.put(
-                        (dgl.batch(int(cell_features.shape[0]) * [drug_features]),
+                        (dgl.batch(drug_features),
                          torch.from_numpy(cell_features).float(),
                          smile, drug_name, cell_names))
                 else:
@@ -80,7 +82,7 @@ def feature_worker(args, smile_queue, feature_queue, cell_features, cell_names, 
                          torch.from_numpy(cell_features).float(),
                          smile, drug_name, cell_names))
             iter_counter += 1
-            if iter_counter % 100 == 0:
+            if DEBUG and iter_counter % 100 == 0:
                 print(id, "did ", iter_counter)
         time.sleep(3)
 
@@ -117,7 +119,7 @@ def infer(feature_queue, out_queue, model_path, cuda_id, mode, smiles_counter, s
                     preds = preds.detach().cpu().numpy().flatten()
                     out_queue.put({'preds': preds, 'smile': smile, 'drug_name': name, 'cell_names': cell_names})
                 iter_counter += 1
-                if iter_counter % 100 == 0:
+                if DEBUG and iter_counter % 100 == 0:
                     print('cuda', cuda_id, "did ", iter_counter)
             time.sleep(3)
 
