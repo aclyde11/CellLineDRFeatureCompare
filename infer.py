@@ -73,6 +73,9 @@ def feature_worker(args, smile_queue, feature_queue, cell_features, cell_names, 
                 except AssertionError:
                     print("Smile error....")
                     continue
+
+                if feature_queue.qsize() > 2500:
+                    time.sleep(5)
                 if args.mode == 'graph':
                     feature_queue.put(
                         (drug_features,
@@ -86,6 +89,8 @@ def feature_worker(args, smile_queue, feature_queue, cell_features, cell_names, 
             iter_counter += 1
             if DEBUG and iter_counter % 100 == 0:
                 print(id, "did ", iter_counter)
+
+
         time.sleep(3)
 
 
@@ -105,7 +110,7 @@ def infer(feature_queue, out_queue, model_path, cuda_id, mode, smiles_counter, s
     with torch.no_grad():
         while not stop.value:
             while not feature_queue.empty():
-                res = feature_queue.get(timeout=10)
+                res = feature_queue.get()
                 if res is not None:
                     smiles_counter.value += 1
                     drug_features, cell_features, smile, name, cell_names = res
