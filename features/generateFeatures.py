@@ -8,7 +8,7 @@ from rdkit import Chem
 from rdkit.Chem import rdDepictor
 from rdkit.Chem.Draw import rdMolDraw2D
 from torchvision.transforms import ToTensor
-
+import dgl
 from features import utils as featmaker
 from features.smiles import smi_tokenizer
 from features.utils import Invert
@@ -61,5 +61,9 @@ def smiles_to_smiles(smi, vocab, maxlen=320):
 def smiles_to_graph(mol, args):
     return featmaker.get_dgl_graph(mol)
 
-def smiles_to_graph_batch(mol, args):
-    return featmaker.get_dgl_graph_batch(mol, args)
+def smiles_to_graph_batch(mol, args, batch=True):
+    gs = featmaker.get_dgl_graph_batch(mol, args)
+    if batch:
+        return dgl.batch(gs)
+    else:
+        return gs

@@ -189,7 +189,7 @@ def get_dgl_graph_batch(smiles, size, add_edge_data=False):
                 for g in gs:
                     g.add_edge(a1, a2)
                     g.add_edge(a2, a1)
-    return dgl.batch(gs)
+    return gs
 
 def interpolate_points(x, y, sampling):
     ln = LinearRegression()

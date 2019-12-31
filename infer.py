@@ -61,7 +61,7 @@ def feature_worker(args, smile_queue, feature_queue, cell_features, cell_names, 
 
     while not stop.value or not smile_queue.empty():
         while not smile_queue.empty():
-            res = smile_queue.get(timeout=10)
+            res = smile_queue.get()
             if res is not None:
                 smile, drug_name = res
                 try:
@@ -74,8 +74,7 @@ def feature_worker(args, smile_queue, feature_queue, cell_features, cell_names, 
                     print("Smile error....")
                     continue
 
-                if feature_queue.qsize() > 2500:
-                    time.sleep(5)
+
                 if args.mode == 'graph':
                     feature_queue.put(
                         (drug_features,
