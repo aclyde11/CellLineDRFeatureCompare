@@ -60,3 +60,6 @@ def smiles_to_smiles(smi, vocab, maxlen=320):
 
 def smiles_to_graph(mol, args):
     return featmaker.get_dgl_graph(mol)
+
+def smiles_to_graph_batch(mol, args):
+    return featmaker.get_dgl_graph_batch(mol, args)

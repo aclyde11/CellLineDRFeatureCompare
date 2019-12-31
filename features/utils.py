@@ -1,7 +1,6 @@
 import shutil
 from argparse import Namespace
 from typing import List
-from functools import lru_cache
 import dgl
 import numpy as np
 import torch
@@ -73,7 +72,6 @@ def onek_encoding_unk(value: int, choices: List[int]) -> List[int]:
 
     return encoding
 
-@lru_cache(maxsize=None)
 def atom_features(atom: Chem.rdchem.Atom, functional_groups: List[int] = None):
     """
     Builds a feature vector for an atom.
@@ -94,7 +92,6 @@ def atom_features(atom: Chem.rdchem.Atom, functional_groups: List[int] = None):
         features += functional_groups
     return np.array(features, dtype=np.float32)
 
-@lru_cache(maxsize=None)
 def bond_features(bond: Chem.rdchem.Bond):
     """
     Builds a feature vector for a bond.
@@ -154,6 +151,44 @@ def get_dgl_graph(smiles, add_edge_data=False):
                 g.add_edge(a2, a1)
     return g
 
+def get_dgl_graph_batch(smiles, size, add_edge_data=False):
+    """
+       Computes the graph structure and featurization of a molecule.
+
+       :param smiles: A smiles string.
+       :param args: Arguments.
+       """
+    gs = [dgl.DGLGraph() for i in range(size)]
+
+    # Convert smiles to molecule
+    mol = Chem.MolFromSmiles(smiles)
+    if mol is None:
+        return None
+    # fake the number of "atoms" if we are collapsing substructures
+    n_atoms = mol.GetNumAtoms()
+
+    for i, atom in enumerate(mol.GetAtoms()):
+        data = {'atom_features': torch.from_numpy(atom_features(atom)).view(1, -1)}
+        for g in gs:
+            g.add_nodes(1, data=data)
+
+    for a1 in range(n_atoms):
+        for a2 in range(a1 + 1, n_atoms):
+            bond = mol.GetBondBetweenAtoms(a1, a2)
+            if bond is None:
+                continue
+
+            if add_edge_data:
+                f_bond = bond_features(bond)
+                d = {'edge_features': torch.from_numpy(f_bond).view(1, -1)}
+                for g in gs:
+                    g.add_edge(a1, a2, data=d)
+                    g.add_edge(a2, a1, data=d)
+            else:
+                for g in gs:
+                    g.add_edge(a1, a2)
+                    g.add_edge(a2, a1)
+    return dgl.batch(gs)
 
 def interpolate_points(x, y, sampling):
     ln = LinearRegression()

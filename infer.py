@@ -65,15 +65,17 @@ def feature_worker(args, smile_queue, feature_queue, cell_features, cell_names, 
             if res is not None:
                 smile, drug_name = res
                 try:
-                    drug_features = feature_producer(smile, argsfp)
+                    if args.mode == 'graph':
+                        drug_features = feature_producer(smile, cell_features.shape[0])
+                    else:
+                        drug_features = feature_producer(smile, argsfp)
                     assert (drug_features is not None)
                 except AssertionError:
                     print("Smile error....")
                     continue
                 if args.mode == 'graph':
-                    drug_features = [feature_producer(smile, argsfp) for i in range(cell_features.shape[0])]
                     feature_queue.put(
-                        (dgl.batch(drug_features),
+                        (drug_features,
                          torch.from_numpy(cell_features).float(),
                          smile, drug_name, cell_names))
                 else:
