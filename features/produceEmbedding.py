@@ -43,7 +43,7 @@ def make_generator(args):
             tokens = smi_tokenizer(line.split(args.s)[args.c])
             yield tokens
 
-    with open('extended_combined_smiles.smi', 'r') as fin:
+    with open('data/extended_combined_smiles.smi', 'r') as fin:
         for cnt, line in tqdm(enumerate(fin)):
             if cnt == 0 and args.header:
                 continue
