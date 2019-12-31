@@ -1,6 +1,7 @@
 import argparse
 import shlex
 from gensim.models import Word2Vec
+import torch
 from smiles import smi_tokenizer, get_vocab
 from tqdm import tqdm
 import numpy as np
@@ -35,13 +36,19 @@ def make_generator(args):
     for k, _ in vocab.items():
         yield k
 
-    with open("data/vocab.txt", 'a') as fout:
-        with open(args.i, 'r') as fin:
-            for cnt, line in tqdm(enumerate(fin)):
-                if cnt == 0 and args.header:
-                    continue
-                tokens = smi_tokenizer(line.split(args.s)[args.c])
-                yield tokens
+    with open(args.i, 'r') as fin:
+        for cnt, line in tqdm(enumerate(fin)):
+            if cnt == 0 and args.header:
+                continue
+            tokens = smi_tokenizer(line.split(args.s)[args.c])
+            yield tokens
+
+    with open('extended_combined_smiles.smi', 'r') as fin:
+        for cnt, line in tqdm(enumerate(fin)):
+            if cnt == 0 and args.header:
+                continue
+            tokens = smi_tokenizer(line.split(' ')[0])
+            yield tokens
 
     for source, (header, sep, c, files) in choices.items():
         for file in files:
@@ -58,7 +65,6 @@ if __name__ == '__main__':
     vocab = get_vocab()
     embedding_size = len(vocab)
 
-
     model = Word2Vec(size=96, window=8, min_count=1, workers=args.w, alpha=0.025, min_alpha=0.025)
 
     model.build_vocab(make_generator(args))
@@ -72,7 +78,7 @@ if __name__ == '__main__':
     embeds = []
     with open("data/vocab.txt", 'w') as f:
         for key, val in enumerate(model.wv.vocab.items()):
-            f.write(str(key) + "\n")
-            embeds.append(model[key].flatten())
-    embeds = np.stack(embeds)
-    np.save("embeds.npy", embeds)
+            f.write(str(val[0]) + "\n")
+            print(key, val)
+    weights = torch.FloatTensor(model.wv.vectors).numpy()
+    np.save("data/embeds.npy", embeds)

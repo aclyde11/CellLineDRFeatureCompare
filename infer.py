@@ -74,7 +74,6 @@ def feature_worker(args, smile_queue, feature_queue, cell_features, cell_names, 
                     print("Smile error....")
                     continue
 
-
                 if args.mode == 'graph':
                     feature_queue.put(
                         (drug_features,
@@ -112,12 +111,13 @@ def infer(feature_queue, out_queue, model_path, cuda_id, mode, smiles_counter, s
                 res = feature_queue.get()
                 if res is not None:
                     smiles_counter.value += 1
-                    drug_features, cell_features, smile, name, cell_names = res
                     if mode == 'desc' or mode == 'image' or mode == 'smiles':
+                        drug_features, cell_features, smile, name, cell_names = res
                         drug_features = drug_features.to(device)
                         cell_features = cell_features.to(device)
                         preds = model(cell_features, drug_features)
                     else:
+                        drug_features, cell_features, smile, name, cell_names = res
                         cell_features = cell_features.to(device)
                         g = drug_features
                         h = g.ndata['atom_features'].to(device)
