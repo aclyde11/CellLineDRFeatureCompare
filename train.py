@@ -15,6 +15,13 @@ from features.generateFeatures import smile_to_smile_to_image
 from features.utils import get_dgl_graph
 from metrics import trackers, rds
 from models import basemodel, vectormodel, graphmodel, imagemodel, smilesmodel
+try:
+    from apex.parallel import DistributedDataParallel as DDP
+    from apex.fp16_utils import *
+    from apex import amp, optimizers
+    from apex.multi_tensor_apply import multi_tensor_applier
+except ImportError:
+    raise ImportError("Please install apex from https://www.github.com/nvidia/apex to run this example.")
 
 if torch.cuda.is_available():
     import torch.backends.cudnn
@@ -43,6 +50,8 @@ def get_args():
                         help='split style to perform for training')
     parser.add_argument('-o', type=str, default='saved_models/model.pt', help='name of file to save model to')
     parser.add_argument('-r', type=int, default=32, help='random seed for splitting.')
+    parser.add_argument('-g', type=int, default=1, help='use data parallel.')
+    parser.add_argument('--amp', action='store_true', help='use amp fp16')
     parser.add_argument('--metric_plot_prefix', default=None, type=str, help='prefix for graphs for performance')
     parser.add_argument('--optimizer', default='adamw', type=str, help='optimizer to use',
                         choices=['sgd', 'adam', 'adamw'])
@@ -80,7 +89,12 @@ def trainer(model, optimizer, train_loader, test_loader, mode, epochs=5):
                 h = g.ndata['atom_features'].to(device)
                 pred = model(rnaseq, g, h)
             mse_loss = torch.nn.functional.mse_loss(pred, value).mean()
-            mse_loss.backward()
+
+            if args.amp:
+                with amp.scale_loss(mse_loss, optimizer) as scaled_loss:
+                    scaled_loss.backward()
+            else:
+                mse_loss.backward()
             optimizer.step()
             train_loss += mse_loss.item()
             train_iters += 1
@@ -111,10 +125,16 @@ def trainer(model, optimizer, train_loader, test_loader, mode, epochs=5):
         print("Epoch", epochnum, train_loss / train_iters, test_loss / test_iters, 'r2',
               tracker.get_last_metric(train=True), tracker.get_last_metric(train=False))
 
-    torch.save({'model_state': model.state_dict(),
-                'opt_state': optimizer.state_dict(),
-                'inference_model': model,
-                'history': tracker}, args.o)
+    if args.g == 1:
+        torch.save({'model_state': model.state_dict(),
+                    'opt_state': optimizer.state_dict(),
+                    'inference_model': model,
+                    'history': tracker}, args.o)
+    else :
+        torch.save({'model_state': model.module.state_dict(),
+                    'opt_state': optimizer.state_dict(),
+                    'inference_model': model.module,
+                    'history': tracker}, args.o)
     return model, tracker
 
 
@@ -287,8 +307,19 @@ if __name__ == '__main__':
     print("Done.")
 
     print("Starting trainer.")
-    model.to(device)
-    optimizer = args.optimizer(model.parameters(), lr=args.lr)
+    if args.g > 1:
+        model = torch.nn.DataParallel(model)
+        model.to(device)
+        optimizer = args.optimizer(model.parameters(), lr=args.lr)
+
+    elif args.amp:
+        model.to(device)
+        optimizer = args.optimizer(model.parameters(), lr=args.lr)
+        model, optimizer = amp.initialize(model, optimizer, opt_level="O1")
+    else:
+        model.to(device)
+        optimizer = args.optimizer(model.parameters(), lr=args.lr)
+
     print("Number of parameters:",
           sum([np.prod(p.size()) for p in filter(lambda p: p.requires_grad, model.parameters())]))
     model, history = trainer(model, optimizer, train_loader, test_loader, mode=args.mode, epochs=args.epochs)
