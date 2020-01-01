@@ -224,6 +224,11 @@ if __name__ == '__main__':
     for index, row in tqdm(smiles_frame.iterrows()):
         smiles[index] = (row.iloc[0])
 
+    if torch.cuda.is_available():
+        kwargs = {'pin_memory' : True}
+    else:
+        kwargs = {}
+
     if args.mode == 'graph':
         frame = {}
 
@@ -238,13 +243,9 @@ if __name__ == '__main__':
         test_dset = GraphDataset(cells[test_idx], cell_frame, frame, values[:, test_idx], drugs[test_idx])
 
         train_loader = DataLoader(train_dset, collate_fn=graph_collate, shuffle=True, num_workers=args.w,
-                                  batch_size=args.b)
+                                  batch_size=args.b, **kwargs)
         test_loader = DataLoader(test_dset, collate_fn=graph_collate, shuffle=True, num_workers=args.w,
-                                 batch_size=args.b)
-
-        test_dset = GraphDatasetOnFly(cells[test_idx], cell_frame, smiles, values[:, test_idx], drugs[test_idx])
-        # test_loader_fly = DataLoader(test_dset, collate_fn=graph_collate, shuffle=False, num_workers=args.w,
-        #                              batch_size=args.b)
+                                 batch_size=args.b, **kwargs)
 
         model = basemodel.BaseModel(cell_frame.shape[1] - 1, args.dropout_rate, featureModel=graphmodel.GCN,
                                     intermediate_rep_drugs=128,
@@ -263,8 +264,8 @@ if __name__ == '__main__':
         train_dset = VectorDataset(cells[train_idx], cell_frame, frame, values[:, train_idx], drugs[train_idx])
         test_dset = VectorDataset(cells[test_idx], cell_frame, frame, values[:, test_idx], drugs[test_idx])
 
-        train_loader = DataLoader(train_dset, shuffle=True, num_workers=args.w, batch_size=args.b)
-        test_loader = DataLoader(test_dset, shuffle=True, num_workers=args.w, batch_size=args.b)
+        train_loader = DataLoader(train_dset, shuffle=True, num_workers=args.w, batch_size=args.b, **kwargs)
+        test_loader = DataLoader(test_dset, shuffle=True, num_workers=args.w, batch_size=args.b, **kwargs)
 
         model = basemodel.BaseModel(cell_frame.shape[1] - 1, args.dropout_rate, featureModel=vectormodel.VectorModel,
                                     intermediate_rep_drugs=128, flen=desc_data_frame.shape[1])
@@ -282,8 +283,8 @@ if __name__ == '__main__':
         train_dset = ImageDataset(cells[train_idx], cell_frame, frame, values[:, train_idx], drugs[train_idx])
         test_dset = ImageDataset(cells[test_idx], cell_frame, frame, values[:, test_idx], drugs[test_idx])
 
-        train_loader = DataLoader(train_dset, shuffle=True, num_workers=args.w, batch_size=args.b)
-        test_loader = DataLoader(test_dset, shuffle=True, num_workers=args.w, batch_size=args.b)
+        train_loader = DataLoader(train_dset, shuffle=True, num_workers=args.w, batch_size=args.b, **kwargs)
+        test_loader = DataLoader(test_dset, shuffle=True, num_workers=args.w, batch_size=args.b, **kwargs)
 
         model = basemodel.BaseModel(cell_frame.shape[1] - 1, args.dropout_rate, featureModel=imagemodel.ImageModel,
                                     intermediate_rep_drugs=128, flen=None)
@@ -297,8 +298,8 @@ if __name__ == '__main__':
         train_dset = SmilesDataset(cells[train_idx], cell_frame, frame, values[:, train_idx], drugs[train_idx])
         test_dset = SmilesDataset(cells[test_idx], cell_frame, frame, values[:, test_idx], drugs[test_idx])
 
-        train_loader = DataLoader(train_dset, shuffle=True, num_workers=args.w, batch_size=args.b)
-        test_loader = DataLoader(test_dset, shuffle=True, num_workers=args.w, batch_size=args.b)
+        train_loader = DataLoader(train_dset, shuffle=True, num_workers=args.w, batch_size=args.b, **kwargs)
+        test_loader = DataLoader(test_dset, shuffle=True, num_workers=args.w, batch_size=args.b, **kwargs)
 
 
         model = basemodel.BaseModel(cell_frame.shape[1] - 1, args.dropout_rate, featureModel=smilesmodel.SmilesModel,
