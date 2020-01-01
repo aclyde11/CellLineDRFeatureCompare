@@ -21,12 +21,8 @@ class ImageModel(nn.Module):
         )
 
     def forward(self, features):
-        print(features.shape)
         image = self.resnet181(features)
         attention = self.attention(image)
-        print("attention shape", attention.shape, image.shape)
         image = self.resnet182(image * attention.repeat([1, 64, 1, 1]))
-        print("image", image.shape)
         image = image.view(features.shape[0], -1)
-        print(image.shape)
         return self.model(image), attention
