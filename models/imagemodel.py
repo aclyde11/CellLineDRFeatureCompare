@@ -7,7 +7,13 @@ class ImageModel(nn.Module):
         super(ImageModel, self).__init__()
         self.feature_length = flen
         resnet18 = models.resnet34(pretrained=True)
-        self.resnet18 = nn.Sequential(*list(resnet18.children())[:-1])
+        resnet18 = nn.Sequential(*list(resnet18.children())[:-1])
+        self.resnet181 = nn.Sequential(*list(resnet18.children())[:5])
+        self.resnet182 = nn.Sequential(*list(resnet18.children())[5:])
+        self.attention = nn.Sequential(
+            nn.Conv2d(64, 1, kernel_size=5, padding=2, stride=1),
+            nn.Softmax(1)
+        )
 
         self.model = nn.Sequential(
             nn.Linear(512, intermediate_rep),
@@ -15,6 +21,12 @@ class ImageModel(nn.Module):
         )
 
     def forward(self, features):
-        image = self.resnet18(features)
+        print(features.shape)
+        image = self.resnet181(features)
+        attention = self.attention(image)
+        print("attention shape", attention.shape, image.shape)
+        image = self.resnet182(image * attention.repeat([1, 64, 1, 1]))
+        print("image", image.shape)
         image = image.view(features.shape[0], -1)
-        return self.model(image)
+        print(image.shape)
+        return self.model(image), attention
