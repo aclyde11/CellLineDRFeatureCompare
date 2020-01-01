@@ -15,13 +15,7 @@ from features.generateFeatures import smile_to_smile_to_image
 from features.utils import get_dgl_graph
 from metrics import trackers, rds
 from models import basemodel, vectormodel, graphmodel, imagemodel, smilesmodel
-try:
-    from apex.parallel import DistributedDataParallel as DDP
-    from apex.fp16_utils import *
-    from apex import amp, optimizers
-    from apex.multi_tensor_apply import multi_tensor_applier
-except ImportError:
-    raise ImportError("Please install apex from https://www.github.com/nvidia/apex to run this example.")
+
 
 if torch.cuda.is_available():
     import torch.backends.cudnn
@@ -319,6 +313,13 @@ if __name__ == '__main__':
         optimizer = args.optimizer(model.parameters(), lr=args.lr)
 
     elif args.amp:
+        try:
+            from apex.parallel import DistributedDataParallel as DDP
+            from apex.fp16_utils import *
+            from apex import amp, optimizers
+            from apex.multi_tensor_apply import multi_tensor_applier
+        except ImportError:
+            raise ImportError("Please install apex from https://www.github.com/nvidia/apex to run this example.")
         model.to(device)
         optimizer = args.optimizer(model.parameters(), lr=args.lr)
         model, optimizer = amp.initialize(model, optimizer, opt_level="O1")
