@@ -51,6 +51,8 @@ def get_args():
     parser.add_argument('-o', type=str, default='saved_models/model.pt', help='name of file to save model to')
     parser.add_argument('-r', type=int, default=32, help='random seed for splitting.')
     parser.add_argument('-g', type=int, default=1, help='use data parallel.')
+    parser.add_argument('-pb', action='store_true')
+
     parser.add_argument('--amp', action='store_true', help='use amp fp16')
     parser.add_argument('--metric_plot_prefix', default=None, type=str, help='prefix for graphs for performance')
     parser.add_argument('--optimizer', default='adamw', type=str, help='optimizer to use',
@@ -77,7 +79,11 @@ def trainer(model, optimizer, train_loader, test_loader, mode, epochs=5):
         train_iters = 0
         test_iters = 0
         model.train()
-        for i, (rnaseq, drugfeats, value) in enumerate(train_loader):
+        if args.pb:
+            gen = tqdm(enumerate(train_loader))
+        else:
+            gen = enumerate(train_loader)
+        for i, (rnaseq, drugfeats, value) in gen:
             optimizer.zero_grad()
 
             if mode == 'desc' or mode == 'image':
