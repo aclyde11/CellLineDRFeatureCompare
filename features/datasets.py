@@ -124,7 +124,7 @@ class SmilesDataset(Dataset):
         self.values = values
         self.cells = cells
         self.drugs = drugs
-        self.vocab = get_vocab()
+        self.vocab, self.embeds = get_vocab(embeds='data/embeds.npy')
         self.random_permutes = random_permutes
         self.maxlen = maxlen
 

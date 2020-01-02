@@ -1,13 +1,15 @@
 import torch.nn as nn
-
+import torch
 
 class SmilesModel(nn.Module):
 
-    def __init__(self, flen, dropout_rate, intermediate_rep=128, maxlen=320, vocab_size=512):
+    def __init__(self, flen, dropout_rate, intermediate_rep=128, maxlen=320, vocab=512, embeds=None):
         super(SmilesModel, self).__init__()
         self.feature_length = flen
 
-        self.embedding_layer = nn.Embedding(vocab_size, 96)
+        self.embedding_layer = nn.Embedding(len(vocab), 96)
+        print(torch.from_numpy(embeds).float().shape)
+        self.embedding_layer.from_pretrained(torch.from_numpy(embeds).float())
 
         self.lstm = nn.GRU(96, 64, num_layers=4, dropout=dropout_rate, batch_first=True, )
         self.model(

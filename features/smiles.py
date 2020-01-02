@@ -1,7 +1,7 @@
 import argparse
 from tqdm import tqdm
 import re
-
+import numpy as np
 
 def get_args():
     parser = argparse.ArgumentParser()
@@ -20,10 +20,12 @@ def smi_tokenizer(smi):
     assert smi == ''.join(tokens)
     return tokens
 
-def get_vocab(loc='data/vocab.txt'):
+def get_vocab(loc='data/vocab.txt', embeds=None):
     with open("data/vocab.txt", 'r') as fin:
         vocab = {v.strip() : k for k,v in enumerate(fin.readlines())}
-    return vocab
+    if embeds is not None:
+        embeds = np.load(embeds)
+    return vocab, embeds
 
 
 if __name__ == '__main__':

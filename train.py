@@ -303,7 +303,7 @@ if __name__ == '__main__':
 
 
         model = basemodel.BaseModel(cell_frame.shape[1] - 1, args.dropout_rate, featureModel=smilesmodel.SmilesModel,
-                                    intermediate_rep_drugs=128, flen=None)
+                                    intermediate_rep_drugs=128, flen=None, vocab=train_dset.vocab, embeds=train_dset.embeds)
 
     print("Done.")
 

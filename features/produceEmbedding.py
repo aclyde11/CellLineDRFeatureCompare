@@ -81,4 +81,4 @@ if __name__ == '__main__':
             f.write(str(val[0]) + "\n")
             print(key, val)
     weights = torch.FloatTensor(model.wv.vectors).numpy()
-    np.save("data/embeds.npy", embeds)
+    np.save("data/embeds.npy", weights)
