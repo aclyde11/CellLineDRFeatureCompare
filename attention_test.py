@@ -1,7 +1,8 @@
 import torch
+from train import load_data_models
 import torch.nn.functional as F
 from torchviz import make_dot
-
+from features.datasets import ImageDatasetOnFly
 from PIL import Image
 from models.basemodel import BaseModelAttend, BaseModel
 from models.imagemodel import  ImageModel
@@ -23,18 +24,33 @@ from features.generateFeatures import smile_to_smile_to_image
 
 import pandas as pd
 
-if __name__ == '__main__':
+if torch.cuda.is_available():
+    import torch.backends.cudnn
 
+    torch.backends.cudnn.benchmark = True
 
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-
-
-    model = BaseModel(942, 0.1, featureModel=ImageModel, flen=23, return_attns=True)
-    model.eval()
-    y = torch.zeros(1, 942, dtype=torch.float, requires_grad=False)
-    x = torch.zeros(1, 3, 128, 128, dtype=torch.float, requires_grad=False)
-    out, attn = model(y,x)
-    attn = torch.nn.functional.upsample(attn, size=(128,128))
-    plt.imshow(np.transpose(attn.squeeze(0).repeat((3,1,1)).detach().numpy(), (1, 2, 0)), interpolation='nearest')
-    plt.show()
+def get_attn_pred(rnaseq, drugfeats, value):
+    rnaseq, drugfeats, value = rnaseq.to(device), drugfeats.to(device), value.to(device)
+    model.return_attns = True
+    pred, attn = model(rnaseq.unsqueeze(0), drugfeats.unsqueeze(0))
+    attn = attn.squeeze(0).detach()
+    attn = torch.mean(attn, dim=0, keepdim=True)
+    attn = attn.repeat([3, 1, 1])
     print(attn.shape)
+    attn  = torch.nn.functional.interpolate(attn, size=(128, 128))
+    return pred, attn, drugfeats
+
+if __name__ == '__main__':
+    cells, drugs, values, cell_frame, smiles = load_data_models(32, 'cells', 'image', 8, batch_size=16, dropout_rate=0.15, data_escape=True)
+    dset = ImageDatasetOnFly(cells, cell_frame, smiles, values, drugs)
+
+
+    model = torch.load('saved_models/model.pt', map_location='cpu')['inference_model']
+    model.eval()
+
+    pred, attn, image = get_attn_pred(*dset[0])
+    print(pred.shape, attn.shape, image.shape)
+    plt.imshow(np.transpose(attn.detach().squeeze(0).numpy(), (1, 2, 0)), interpolation='nearest')
+    plt.show()

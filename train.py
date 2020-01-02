@@ -9,13 +9,12 @@ from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
-from features.datasets import VectorDataset, VectorDatasetOnFly, GraphDataset, GraphDatasetOnFly, graph_collate, \
-    ImageDatasetOnFly, ImageDataset, SmilesDataset
+from features.datasets import VectorDataset, GraphDataset, graph_collate, \
+    ImageDataset, SmilesDataset
 from features.generateFeatures import smile_to_smile_to_image
 from features.utils import get_dgl_graph
 from metrics import trackers, rds
 from models import basemodel, vectormodel, graphmodel, imagemodel, smilesmodel
-
 
 if torch.cuda.is_available():
     import torch.backends.cudnn
@@ -80,7 +79,7 @@ def trainer(model, optimizer, train_loader, test_loader, mode, epochs=5):
         for i, (rnaseq, drugfeats, value) in gen:
             optimizer.zero_grad()
 
-            if mode == 'desc' or mode == 'image':
+            if mode == 'desc' or mode == 'image' or mode == 'smiles':
                 rnaseq, drugfeats, value = rnaseq.to(device), drugfeats.to(device), value.to(device)
                 pred = model(rnaseq, drugfeats)
             else:
@@ -106,7 +105,7 @@ def trainer(model, optimizer, train_loader, test_loader, mode, epochs=5):
         model.eval()
         with torch.no_grad():
             for i, (rnaseq, drugfeats, value) in enumerate(test_loader):
-                if mode == 'desc' or mode == 'image':
+                if mode == 'desc' or mode == 'image' or mode == 'smiles':
                     rnaseq, drugfeats, value = rnaseq.to(device), drugfeats.to(device), value.to(device)
                     pred = model(rnaseq, drugfeats)
                 else:
@@ -130,7 +129,7 @@ def trainer(model, optimizer, train_loader, test_loader, mode, epochs=5):
                     'opt_state': optimizer.state_dict(),
                     'inference_model': model,
                     'history': tracker}, args.o)
-    else :
+    else:
         torch.save({'model_state': model.module.state_dict(),
                     'opt_state': optimizer.state_dict(),
                     'inference_model': model.module,
@@ -162,15 +161,7 @@ def produce_preds_timing(model, loader, cells, drugs, mode):
     return res
 
 
-if __name__ == '__main__':
-    args = get_args()
-
-    np.random.seed(args.r)
-    torch.manual_seed(args.r)
-
-    dataloader = None
-    model = None
-
+def load_data_models(random_seed, split_on, mode, workers, batch_size, dropout_rate, make_models=True, data_escape=False):
     print("Loading base frame. ")
     cell_frame = pd.read_pickle("data/cellpickle.pkl")
     base_frame = pd.read_pickle("data/rnaseq.pkl")
@@ -185,20 +176,20 @@ if __name__ == '__main__':
     base_frame = base_frame[base_frame['auc_combo.DRUG'].isin(good_drugs)]
     print("Done, base frame is shape", base_frame.shape)
 
-    if args.s == 'cell':
+    if split_on == 'cell':
         print("Splitting on cells...")
         train_idx, test_idx = train_test_split(list(range(base_frame.shape[0])), stratify=base_frame['auc_combo.CELL'],
-                                               test_size=0.2, random_state=args.r)
-    elif args.s == 'drug':
+                                               test_size=0.2, random_state=random_seed)
+    elif split_on == 'drug':
         print("Splitting on drugs...")
         train_idx, test_idx = train_test_split(list(range(base_frame.shape[0])), stratify=base_frame['auc_combo.DRUG'],
-                                               test_size=0.2, random_state=args.r)
-    elif args.s == 'hard':
+                                               test_size=0.2, random_state=random_seed)
+    elif split_on == 'hard':
         unique_cells = np.unique(np.array(base_frame['auc_combo.CELL']))
         unique_drugs = np.unique(np.array(base_frame['auc_combo.DRUG']))
 
-        train_drugs, _ = map(list, train_test_split(unique_cells, test_size=0.2, random_state=args.r))
-        train_cells, _ = map(list, train_test_split(unique_drugs, test_size=0.2, random_state=args.r))
+        train_drugs, _ = map(list, train_test_split(unique_cells, test_size=0.2, random_state=random_seed))
+        train_cells, _ = map(list, train_test_split(unique_drugs, test_size=0.2, random_state=random_seed))
 
         train_idx = []
         test_idx = []
@@ -211,12 +202,13 @@ if __name__ == '__main__':
     else:
         print("Splitting randomly...")
         train_idx, test_idx = train_test_split(list(range(base_frame.shape[0])),
-                                               test_size=0.2, random_state=args.r)
+                                               test_size=0.2, random_state=random_seed)
 
     cells = np.array(base_frame['auc_combo.CELL'])
     values = np.array(base_frame['auc_combo.AUC'], dtype=np.float32)[np.newaxis, :]
     drugs = np.array(base_frame['auc_combo.DRUG'])
     print("Done loading and splitting base frames...")
+
 
     smiles_frame = pd.read_csv("data/extended_combined_smiles")
     smiles_frame = smiles_frame.set_index('NAME')
@@ -225,11 +217,14 @@ if __name__ == '__main__':
         smiles[index] = (row.iloc[0])
 
     if torch.cuda.is_available():
-        kwargs = {'pin_memory' : True}
+        kwargs = {'pin_memory': True}
     else:
         kwargs = {}
 
-    if args.mode == 'graph':
+    if data_escape:
+        return cells, drugs, values, cell_frame, smiles
+
+    if mode == 'graph':
         frame = {}
 
         print("Producing graph features...")
@@ -242,17 +237,18 @@ if __name__ == '__main__':
         train_dset = GraphDataset(cells[train_idx], cell_frame, frame, values[:, train_idx], drugs[train_idx])
         test_dset = GraphDataset(cells[test_idx], cell_frame, frame, values[:, test_idx], drugs[test_idx])
 
-        train_loader = DataLoader(train_dset, collate_fn=graph_collate, shuffle=True, num_workers=args.w,
-                                  batch_size=args.b, **kwargs)
-        test_loader = DataLoader(test_dset, collate_fn=graph_collate, shuffle=True, num_workers=args.w,
-                                 batch_size=args.b, **kwargs)
+        train_loader = DataLoader(train_dset, collate_fn=graph_collate, shuffle=True, num_workers=workers,
+                                  batch_size=batch_size, **kwargs)
+        test_loader = DataLoader(test_dset, collate_fn=graph_collate, shuffle=True, num_workers=workers,
+                                 batch_size=batch_size, **kwargs)
 
-        model = basemodel.BaseModel(cell_frame.shape[1] - 1, args.dropout_rate, featureModel=graphmodel.GCN,
-                                    intermediate_rep_drugs=128,
-                                    flen=frame[list(frame.keys())[0]].ndata['atom_features'].shape[1])
+        if make_models:
+            model = basemodel.BaseModel(cell_frame.shape[1] - 1, dropout_rate, featureModel=graphmodel.GCN,
+                                        intermediate_rep_drugs=128,
+                                        flen=frame[list(frame.keys())[0]].ndata['atom_features'].shape[1])
 
 
-    elif args.mode == 'desc':
+    elif mode == 'desc':
         desc_data_frame = pd.read_pickle("data/drugfeats.pkl")
         desc_data_frame = desc_data_frame.set_index("DRUG")
         frame = {}
@@ -264,13 +260,14 @@ if __name__ == '__main__':
         train_dset = VectorDataset(cells[train_idx], cell_frame, frame, values[:, train_idx], drugs[train_idx])
         test_dset = VectorDataset(cells[test_idx], cell_frame, frame, values[:, test_idx], drugs[test_idx])
 
-        train_loader = DataLoader(train_dset, shuffle=True, num_workers=args.w, batch_size=args.b, **kwargs)
-        test_loader = DataLoader(test_dset, shuffle=True, num_workers=args.w, batch_size=args.b, **kwargs)
+        train_loader = DataLoader(train_dset, shuffle=True, num_workers=workers, batch_size=batch_size, **kwargs)
+        test_loader = DataLoader(test_dset, shuffle=True, num_workers=workers, batch_size=batch_size, **kwargs)
 
-        model = basemodel.BaseModel(cell_frame.shape[1] - 1, args.dropout_rate, featureModel=vectormodel.VectorModel,
-                                    intermediate_rep_drugs=128, flen=desc_data_frame.shape[1])
+        if make_models:
+            model = basemodel.BaseModel(cell_frame.shape[1] - 1, dropout_rate, featureModel=vectormodel.VectorModel,
+                                        intermediate_rep_drugs=128, flen=desc_data_frame.shape[1])
 
-    elif args.mode == 'image':
+    elif mode == 'image':
         frame = {}
 
         print("Producing image features.")
@@ -283,28 +280,49 @@ if __name__ == '__main__':
         train_dset = ImageDataset(cells[train_idx], cell_frame, frame, values[:, train_idx], drugs[train_idx])
         test_dset = ImageDataset(cells[test_idx], cell_frame, frame, values[:, test_idx], drugs[test_idx])
 
-        train_loader = DataLoader(train_dset, shuffle=True, num_workers=args.w, batch_size=args.b, **kwargs)
-        test_loader = DataLoader(test_dset, shuffle=True, num_workers=args.w, batch_size=args.b, **kwargs)
+        train_loader = DataLoader(train_dset, shuffle=True, num_workers=workers, batch_size=batch_size, **kwargs)
+        test_loader = DataLoader(test_dset, shuffle=True, num_workers=workers, batch_size=batch_size, **kwargs)
 
-        model = basemodel.BaseModel(cell_frame.shape[1] - 1, args.dropout_rate, featureModel=imagemodel.ImageModel,
-                                    intermediate_rep_drugs=128, flen=None)
-    elif args.mode == 'smiles':
+        if make_models:
+            model = basemodel.BaseModel(cell_frame.shape[1] - 1, dropout_rate, featureModel=imagemodel.ImageModel,
+                                        intermediate_rep_drugs=128, flen=None)
+    elif mode == 'smiles':
         frame = {}
 
         print("Producing smile features.")
         for index, row in tqdm(smiles_frame.iterrows()):
             frame[index] = row['SMILES']
 
-        train_dset = SmilesDataset(cells[train_idx], cell_frame, frame, values[:, train_idx], drugs[train_idx])
-        test_dset = SmilesDataset(cells[test_idx], cell_frame, frame, values[:, test_idx], drugs[test_idx])
+        train_dset = SmilesDataset(cells[train_idx], cell_frame, frame, values[:, train_idx], drugs[train_idx], random_permutes=False)
+        test_dset = SmilesDataset(cells[test_idx], cell_frame, frame, values[:, test_idx], drugs[test_idx], random_permutes=False)
 
-        train_loader = DataLoader(train_dset, shuffle=True, num_workers=args.w, batch_size=args.b, **kwargs)
-        test_loader = DataLoader(test_dset, shuffle=True, num_workers=args.w, batch_size=args.b, **kwargs)
+        train_loader = DataLoader(train_dset, shuffle=True, num_workers=workers, batch_size=batch_size, **kwargs)
+        test_loader = DataLoader(test_dset, shuffle=True, num_workers=workers, batch_size=batch_size, **kwargs)
+
+        if make_models:
+            model = basemodel.BaseModel(cell_frame.shape[1] - 1, dropout_rate, featureModel=smilesmodel.SmilesModel,
+                                        intermediate_rep_drugs=128, flen=None, vocab=train_dset.vocab, embeds=None)
+    else:
+        if make_models:
+            return None, None, None, train_idx, test_idx
+        else:
+            return None, None, cells, drugs
+    if make_models:
+        return train_loader, test_loader, cells, drugs, model, train_idx, test_idx
+    else:
+        return train_loader, test_loader, cells, drugs
 
 
-        model = basemodel.BaseModel(cell_frame.shape[1] - 1, args.dropout_rate, featureModel=smilesmodel.SmilesModel,
-                                    intermediate_rep_drugs=128, flen=None, vocab=train_dset.vocab, embeds=train_dset.embeds)
+if __name__ == '__main__':
+    args = get_args()
 
+    np.random.seed(args.r)
+    torch.manual_seed(args.r)
+
+    train_loader, test_loader, cells, drugs, model, train_idx, test_idx = load_data_models(args.r, args.s, args.mode,
+                                                                                           args.w, args.b,
+                                                                                           args.dropout_rate,
+                                                                                           make_models=True)
     print("Done.")
 
     print("Starting trainer.")

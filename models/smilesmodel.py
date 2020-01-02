@@ -8,16 +8,17 @@ class SmilesModel(nn.Module):
         self.feature_length = flen
 
         self.embedding_layer = nn.Embedding(len(vocab), 96)
-        print(torch.from_numpy(embeds).float().shape)
-        self.embedding_layer.from_pretrained(torch.from_numpy(embeds).float())
+        if embeds is not None:
+            print(torch.from_numpy(embeds).float().shape)
+            self.embedding_layer.from_pretrained(torch.from_numpy(embeds).float())
 
         self.lstm = nn.GRU(96, 64, num_layers=4, dropout=dropout_rate, batch_first=True, )
-        self.model(
+        self.model = nn.Sequential(
             nn.Linear(64 * maxlen, intermediate_rep)
         )
 
     def forward(self, features):
         emb = self.embedding_layer(features)
         emb, _ = self.lstm(emb)
-        emb = emb.view(self.emb[0], -1)
+        emb = emb.reshape(emb.shape[0], -1)
         return self.model(emb)

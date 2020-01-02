@@ -40,7 +40,8 @@ class ImageDataset(Dataset):
 
     def __getitem__(self, item):
         cell_data = np.array(self.rnaseq[self.rnaseq['lincs.Sample'] == self.cells[item]].iloc[0, 1:], dtype=np.float32)
-        return torch.from_numpy(cell_data).float(), torch.from_numpy(self.graphs[self.drugs[item]]).float(), torch.from_numpy(
+        return torch.from_numpy(cell_data).float(), torch.from_numpy(
+            self.graphs[self.drugs[item]]).float(), torch.from_numpy(
             self.values[:, item]).float()
 
     def __len__(self):
@@ -124,7 +125,7 @@ class SmilesDataset(Dataset):
         self.values = values
         self.cells = cells
         self.drugs = drugs
-        self.vocab, self.embeds = get_vocab(embeds='data/embeds.npy')
+        self.vocab = get_vocab()
         self.random_permutes = random_permutes
         self.maxlen = maxlen
 
@@ -138,12 +139,12 @@ class SmilesDataset(Dataset):
                 t = randomSmiles_(t)
             except:
                 pass
-
+        t = t.strip()
         t = [self.vocab[i] for i in smi_tokenizer(t)]
         if len(t) >= self.maxlen:
             t = t[:self.maxlen]
         else:
-            t = t + (self.maxlen - len(t))  * [self.vocab[' ']]
+            t = t + (self.maxlen - len(t)) * [self.vocab[' ']]
         t = np.array(t).flatten()
 
         cell_data = np.array(self.rnaseq[self.rnaseq['lincs.Sample'] == self.cells[item]].iloc[0, 1:], dtype=np.float32)

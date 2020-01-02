@@ -21,10 +21,14 @@ def smi_tokenizer(smi):
     return tokens
 
 def get_vocab(loc='data/vocab.txt', embeds=None):
-    with open("data/vocab.txt", 'r') as fin:
-        vocab = {v.strip() : k for k,v in enumerate(fin.readlines())}
+    with open(loc, 'r') as fin:
+        vocab = {v.rstrip('\n') : k for k,v in enumerate(fin.readlines())}
+        if ' ' not in vocab:
+            vocab[' '] = len(vocab)
     if embeds is not None:
         embeds = np.load(embeds)
+        if embeds.shape[0] != len(vocab):
+            embeds = np.concatenate([embeds, np.zeros((1, embeds.shape[1]))], axis=0)
         return vocab, embeds
     return vocab
 

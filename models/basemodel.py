@@ -114,6 +114,6 @@ class BaseModel(nn.Module):
         x = torch.cat([rnafeatures, drug_latent], dim=-1)
 
         if self.return_attns:
-            return self.basemodel, attn
+            return self.basemodel(x), attn
         else:
             return self.basemodel(x)
