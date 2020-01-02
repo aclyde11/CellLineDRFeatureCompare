@@ -12,7 +12,6 @@ class ImageModel(nn.Module):
         self.resnet182 = nn.Sequential(*list(resnet18.children())[5:])
         self.attention = nn.Sequential(
             nn.Conv2d(64, 1, kernel_size=5, padding=2, stride=1),
-            nn.Softmax(1)
         )
 
         self.model = nn.Sequential(
@@ -22,7 +21,10 @@ class ImageModel(nn.Module):
 
     def forward(self, features):
         image = self.resnet181(features)
-        attention = self.attention(image).repeat([1, 64, 1, 1])
+        attention = self.attention(image)
+        attention = nn.functional.softmax(attention.view(attention.shape[0], -1), dim=-1).view(attention.shape)
+        attention = attention.repeat([1, 64, 1, 1])
+
         image = self.resnet182(image * attention)
         image = image.view(features.shape[0], -1)
         return self.model(image), attention

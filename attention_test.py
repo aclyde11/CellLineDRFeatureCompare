@@ -36,9 +36,8 @@ def get_attn_pred(rnaseq, drugfeats, value):
     model.return_attns = True
     pred, attn = model(rnaseq.unsqueeze(0), drugfeats.unsqueeze(0))
     attn = attn.squeeze(0).detach()
-    attn = torch.mean(attn, dim=0, keepdim=True)
-    attn = attn.repeat([3, 1, 1])
-    print(attn.shape)
+    attn = torch.sum(attn, dim=0, keepdim=True)
+    attn = attn.repeat([3, 1, 1]).unsqueeze(0)
     attn  = torch.nn.functional.interpolate(attn, size=(128, 128))
     return pred, attn, drugfeats
 
