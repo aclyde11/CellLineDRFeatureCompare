@@ -25,7 +25,8 @@ def get_vocab(loc='data/vocab.txt', embeds=None):
         vocab = {v.strip() : k for k,v in enumerate(fin.readlines())}
     if embeds is not None:
         embeds = np.load(embeds)
-    return vocab, embeds
+        return vocab, embeds
+    return vocab
 
 
 if __name__ == '__main__':
