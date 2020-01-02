@@ -26,7 +26,9 @@ choices = {
                                                  'ENAMIN/Enamine_REAL_full_smiles_Part_03.smiles',
                                                  # 'ENAMIN/Enamine_REAL_full_smiles_Part_04.smiles'
                                                  ]),
-    'ZINC': (False, ' ', 0, ['ZINC/6_p0.smi', 'ZINC/6_p1.smi', 'ZINC/6_p2.smi', 'ZINC/6_p3.smi']),
+    'ZINC': (False, ' ', 0, ['ZINC/6_p0.smi', 'ZINC/6_p1.smi',
+                             # 'ZINC/6_p2.smi', 'ZINC/6_p3.smi'
+                             ]),
 }
 
 
