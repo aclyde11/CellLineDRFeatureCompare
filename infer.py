@@ -118,7 +118,8 @@ def infer(feature_queue, out_queue, model_path, cuda_id, mode, smiles_counter, s
                     smiles_counter.value += 1
                     if mode == 'desc' or mode == 'image' or mode == 'smiles':
                         drug_features, cell_features, smile, name, cell_names = res
-                        drug_features = drug_features.to(device)
+                        if mode == 'smiles':
+                            drug_features = drug_features.long().to(device)
                         cell_features = cell_features.to(device)
                         preds = model(cell_features, drug_features)
                     else:
