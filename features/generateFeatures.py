@@ -49,6 +49,8 @@ def smile_to_smile_to_image(mol, molSize=(128, 128), kekulize=True, mol_name='')
 
 
 def smiles_to_smiles(smi, vocab, maxlen=320):
+    if isinstance(vocab, tuple):
+        vocab = vocab[0]
     t = [vocab[i] for i in smi_tokenizer(smi)]
     if len(t) >= maxlen:
         t = t[:maxlen]
