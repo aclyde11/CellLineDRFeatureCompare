@@ -173,7 +173,7 @@ def load_data_models(random_seed, split_on, mode, workers, batch_size, dropout_r
         test = Chem.MolFromSmiles(smi)
         if test is not None:
             good_drugs.append(smiles_frame.iloc[i, 0])
-
+    base_frame['auc_combo.AUC'] = (np.array(base_frame['auc_combo.AUC']) <= 0.5).astype(np.float32)
     base_frame = base_frame[base_frame['auc_combo.DRUG'].isin(good_drugs)]
     print("Done, base frame is shape", base_frame.shape)
 
