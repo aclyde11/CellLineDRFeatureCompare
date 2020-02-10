@@ -87,7 +87,7 @@ def trainer(model, optimizer, train_loader, test_loader, mode, epochs=5):
                 g = drugfeats
                 h = g.ndata['atom_features'].to(device)
                 pred = model(rnaseq, g, h)
-            mse_loss = torch.nn.functional.binary_cross_entropy_with_logits(pred, value, pos_weight=torch.FloatTensor(9.0)).mean()
+            mse_loss = torch.nn.functional.binary_cross_entropy_with_logits(pred, value, pos_weight=torch.FloatTensor([1.0,9.0])).mean()
 
             if args.amp:
                 with amp.scale_loss(mse_loss, optimizer) as scaled_loss:
@@ -113,7 +113,7 @@ def trainer(model, optimizer, train_loader, test_loader, mode, epochs=5):
                     g = drugfeats
                     h = g.ndata['atom_features'].to(device)
                     pred = model(rnaseq, g, h)
-                mse_loss = torch.nn.functional.binary_cross_entropy_with_logits(pred, value, pos_weight=torch.FloatTensor(9.0)).mean()
+                mse_loss = torch.nn.functional.binary_cross_entropy_with_logits(pred, value, pos_weight=torch.FloatTensor([1.0, 9.0])).mean()
                 test_loss += mse_loss.item()
                 test_iters += 1
                 tracker.track_metric(pred.detach().cpu().numpy(), value.detach().cpu().numpy())
