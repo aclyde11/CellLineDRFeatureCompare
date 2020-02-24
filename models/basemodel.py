@@ -129,9 +129,9 @@ class BaseModel(nn.Module):
                 return self.basemodel(x)
         else:
             args = list(args)
-            g1, g2, d1, d2 = args
+            g1, g2, d1, h, d2 = args
 
-            drug_latent_graph = self.feature_model[0](d1)
+            drug_latent_graph = self.feature_model[0](d1,h)
             drug_latent_vector = self.feature_model[1](d2)
             drug_latent_graph = drug_latent_graph * g1
             drug_latent_vector = drug_latent_vector * g2

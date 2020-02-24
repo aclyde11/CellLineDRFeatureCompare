@@ -83,6 +83,12 @@ def trainer(model, optimizer, train_loader, test_loader, mode, epochs=5, classif
             if mode == 'desc' or mode == 'image' or mode == 'smiles':
                 rnaseq, drugfeats, value = rnaseq.to(device), drugfeats.to(device), value.to(device)
                 pred = model(rnaseq, drugfeats)
+            elif mode == 'descgraph':
+                rnaseq, value = rnaseq.to(device), value.to(device)
+                g1, g2, g, descs = drugfeats
+                g1, g2, descs = g1.to(device), g2.to(device), descs.to(device)
+                h = g.ndata['atom_features'].to(device)
+                pred = model(rnaseq, g1, g2, g, h, descs)
             else:
                 rnaseq, value = rnaseq.to(device), value.to(device)
                 g = drugfeats
