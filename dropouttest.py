@@ -46,7 +46,7 @@ def get_args():
     parser.add_argument('-g', type=int, default=1, help='use data parallel.')
     parser.add_argument('-pb', action='store_true')
     parser.add_argument('--use_attention', action='store_true', help='use or not attention for images')
-    parser.add_argument('--classifacation', type=float, default=None, help='run in classifacation mode with given cutoff instead of regression')
+    parser.add_argument('--classifcation', type=float, default=None, help='run in classifacation mode with given cutoff instead of regression')
     parser.add_argument('--amp', action='store_true', help='use amp fp16')
     parser.add_argument('--metric_plot_prefix', default=None, type=str, help='prefix for graphs for performance')
     parser.add_argument('--optimizer', default='adamw', type=str, help='optimizer to use',
