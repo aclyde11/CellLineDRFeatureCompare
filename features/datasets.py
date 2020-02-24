@@ -203,13 +203,14 @@ class DescGraphDataset(Dataset):
 
         if random.random() < self.random_filter_descrip:
             gate2 = torch.from_numpy(np.array([0])).float()
-        else:
             t = self.descs[self.drugs[item]]
-            t = torch.zeros(t.shape)
+            t = torch.zeros(t.shape).float()
+        else:
+            t = torch.from_numpy(self.descs[self.drugs[item]]).float()
             gate2 = torch.from_numpy(np.array([1])).float()
 
         cell_data = np.array(self.rnaseq[self.rnaseq['lincs.Sample'] == self.cells[item]].iloc[0, 1:], dtype=np.float32)
-        return torch.from_numpy(cell_data), (gate1, gate2, self.graphs[self.drugs[item]], torch.from_numpy(t).float()), torch.from_numpy(self.values[:, item])
+        return torch.from_numpy(cell_data), (gate1, gate2, self.graphs[self.drugs[item]], t), torch.from_numpy(self.values[:, item])
 
     def __len__(self):
         return self.cells.shape[0]
