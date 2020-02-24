@@ -210,7 +210,7 @@ class DescGraphDataset(Dataset):
             gate2 = torch.from_numpy(np.array([1])).float()
 
         cell_data = np.array(self.rnaseq[self.rnaseq['lincs.Sample'] == self.cells[item]].iloc[0, 1:], dtype=np.float32)
-        return torch.from_numpy(cell_data), (gate1, gate2, self.graphs[self.drugs[item]], t), torch.from_numpy(self.values[:, item])
+        return torch.from_numpy(cell_data), gate1, gate2, self.graphs[self.drugs[item]], t, torch.from_numpy(self.values[:, item])
 
     def __len__(self):
         return self.cells.shape[0]
@@ -236,7 +236,7 @@ class VectorDataset(Dataset):
 
 
 def graph_collate(x):
-    c, (g1, g2, g, d), v = zip(*x)
+    c, g1, g2, g, d, v = zip(*x)
     batch_graph = dgl.batch(g)
     batch_g1 = torch.stack(g1, dim=0)
     batch_g2 = torch.stack(g2, dim=0)
