@@ -188,10 +188,58 @@ class GraphDataset(Dataset):
     def __len__(self):
         return self.cells.shape[0]
 
+class DescGraphDataset(Dataset):
+    def __init__(self, cells, rnaseq, g, values, drugs):
+        self.graphs, self.descs = g
+        self.cells = cells
+        self.rnaseq = rnaseq
+        self.values = values
+        self.drugs = drugs
+
+        self.random_filter_descrip = 0.2
+
+    def __getitem__(self, item):
+        gate1 = torch.from_numpy(np.array([1])).float()
+
+        if random.random() < self.random_filter_descrip:
+            gate2 = torch.from_numpy(np.array([0])).float()
+        else:
+            t = self.descs[self.drugs[item]]
+            t = torch.zeros(t.shape)
+            gate2 = torch.from_numpy(np.array([1])).float()
+
+        cell_data = np.array(self.rnaseq[self.rnaseq['lincs.Sample'] == self.cells[item]].iloc[0, 1:], dtype=np.float32)
+        return torch.from_numpy(cell_data), (gate1, gate2, self.graphs[self.drugs[item]], torch.from_numpy(t).float()), torch.from_numpy(self.values[:, item])
+
+    def __len__(self):
+        return self.cells.shape[0]
+
+
+class VectorDataset(Dataset):
+    def __init__(self, cells, rnaseq, g, values, drugs):
+        self.graphs = g
+        self.rnaseq = rnaseq
+        self.values = values
+        self.cells = cells
+        self.drugs = drugs
+
+    def __getitem__(self, item):
+        t = self.graphs[self.drugs[item]]
+        cell_data = np.array(self.rnaseq[self.rnaseq['lincs.Sample'] == self.cells[item]].iloc[0, 1:], dtype=np.float32)
+        return torch.from_numpy(cell_data).float(), torch.from_numpy(t).float(), torch.from_numpy(
+            self.values[:, item]).float()
+
+    def __len__(self):
+        return self.cells.shape[0]
+
+
 
 def graph_collate(x):
-    c, g, v = zip(*x)
+    c, (g1, g2, g, d), v = zip(*x)
     batch_graph = dgl.batch(g)
+    batch_g1 = torch.stack(g1, dim=0)
+    batch_g2 = torch.stack(g2, dim=0)
+    batch_desc = torch.stack(d, dim=0)
     batch_values = torch.stack(v, dim=0)
     batch_cells = torch.stack(c, dim=0)
-    return batch_cells, batch_graph, batch_values.view(len(g), 1).float()
+    return batch_cells, (batch_g1, batch_g2, batch_graph, batch_desc), batch_values.view(len(g), 1).float()

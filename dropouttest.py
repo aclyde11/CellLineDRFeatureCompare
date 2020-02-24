@@ -280,7 +280,33 @@ def load_data_models(random_seed, split_on, mode, workers, batch_size, dropout_r
             model = basemodel.BaseModel(cell_frame.shape[1] - 1, dropout_rate, featureModel=vectormodel.VectorModel,
                                         intermediate_rep_drugs=128, flen=desc_data_frame.shape[1])
 
+    elif mode == 'descgraph':
+        desc_data_frame = pd.read_pickle("data/drugfeats.pkl")
+        desc_data_frame = desc_data_frame.set_index("DRUG")
+        dframe = {}
 
+        print("Producing desc features...")
+        for ind in range(desc_data_frame.shape[0]):
+            dframe[desc_data_frame.index[ind]] = np.array(desc_data_frame.iloc[ind], dtype=np.float32)
+
+        gframe = {}
+
+        print("Producing graph features...")
+        for index, row in tqdm(smiles_frame.iterrows()):
+            try:
+                gframe[index] = get_dgl_graph(row['SMILES'])
+            except AttributeError:
+                continue
+        train_dset = GraphDataset(cells[train_idx], cell_frame, (gframe, dframe), values[:, train_idx], drugs[train_idx])
+        test_dset = GraphDataset(cells[test_idx], cell_frame, (gframe, dframe), values[:, test_idx], drugs[test_idx])
+
+        train_loader = DataLoader(train_dset, collate_fn=graph_collate, shuffle=True, num_workers=workers,
+                                  batch_size=batch_size, **kwargs)
+        test_loader = DataLoader(test_dset, collate_fn=graph_collate, shuffle=True, num_workers=workers,
+                                 batch_size=batch_size, **kwargs)
+        model = basemodel.BaseModel(cell_frame.shape[1] - 1, dropout_rate, featureModel=(graphmodel.GCN, vectormodel.VectorModel),
+                                    intermediate_rep_drugs=128,
+                                    flen=(gframe[list(gframe.keys())[0]].ndata['atom_features'].shape[1], desc_data_frame.shape[1]))
     elif mode == 'image':
         frame = {}
 
