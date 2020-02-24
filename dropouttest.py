@@ -9,7 +9,7 @@ from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 from sklearn import metrics
-from features.datasets import VectorDataset, GraphDataset, graph_collate, \
+from features.datasets import VectorDataset, GraphDataset, DescGraphDataset, graph_collate, \
     ImageDataset, SmilesDataset
 from features.generateFeatures import smile_to_smile_to_image
 from features.utils import get_dgl_graph
@@ -297,8 +297,8 @@ def load_data_models(random_seed, split_on, mode, workers, batch_size, dropout_r
                 gframe[index] = get_dgl_graph(row['SMILES'])
             except AttributeError:
                 continue
-        train_dset = GraphDataset(cells[train_idx], cell_frame, (gframe, dframe), values[:, train_idx], drugs[train_idx])
-        test_dset = GraphDataset(cells[test_idx], cell_frame, (gframe, dframe), values[:, test_idx], drugs[test_idx])
+        train_dset = DescGraphDataset(cells[train_idx], cell_frame, (gframe, dframe), values[:, train_idx], drugs[train_idx])
+        test_dset = DescGraphDataset(cells[test_idx], cell_frame, (gframe, dframe), values[:, test_idx], drugs[test_idx])
 
         train_loader = DataLoader(train_dset, collate_fn=graph_collate, shuffle=True, num_workers=workers,
                                   batch_size=batch_size, **kwargs)
