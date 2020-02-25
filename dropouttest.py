@@ -87,8 +87,9 @@ def trainer(model, optimizer, train_loader, test_loader, mode, epochs=5, classif
                 rnaseq, value = rnaseq.to(device), value.to(device)
                 g1, g2, g, descs = drugfeats
                 g1, g2, descs = g1.to(device), g2.to(device), descs.to(device)
-                h = g.ndata['atom_features'].to(device)
-                pred = model(rnaseq, g1, g2, g, h, descs)
+                g.ndata['atom_features'] = g.ndata['atom_features'].to(device)
+                g = g.to(device)
+                pred = model(rnaseq, g1, g2, g, g.ndata['atom_features'], descs)
             else:
                 rnaseq, value = rnaseq.to(device), value.to(device)
                 g = drugfeats
