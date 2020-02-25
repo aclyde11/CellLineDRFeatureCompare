@@ -68,10 +68,10 @@ class BaseModel(nn.Module):
         if isinstance(featureModel, tuple):
             self.mp = True
             ts = dict(kwargs)['flen']
-            self.feature_model = (
+            self.feature_model = nn.ModuleList([
                 featureModel[0](dropout_rate=dr, intermediate_rep=intermediate_rep_drugs, flen=ts[0]),
                 featureModel[1](dropout_rate=dr, intermediate_rep=intermediate_rep_drugs, flen=ts[1])
-            )
+            ])
         else:
             self.mp = False
             self.feature_model = featureModel(dropout_rate=dr, intermediate_rep=intermediate_rep_drugs, **kwargs)
