@@ -4,15 +4,16 @@ import numpy as np
 import pandas as pd
 import torch
 from rdkit import Chem
+from sklearn import metrics
 from sklearn.model_selection import train_test_split
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torch.utils.data import DataLoader
 from tqdm import tqdm
-from sklearn import metrics
+
 from features.datasets import VectorDataset, GraphDataset, DescGraphDataset, graph_collate, \
     ImageDataset, SmilesDataset
 from features.generateFeatures import smile_to_smile_to_image
-from features.utils import get_dgl_graph
+from features.utils import get_dgl_graph, EarlyStopping
 from metrics import trackers, rds
 from models import basemodel, vectormodel, graphmodel, imagemodel, smilesmodel
 
@@ -47,7 +48,8 @@ def get_args():
     parser.add_argument('-pb', action='store_true')
     parser.add_argument('--feature_dropout_rate', type=float, default=0.0)
     parser.add_argument('--use_attention', action='store_true', help='use or not attention for images')
-    parser.add_argument('--classifcation', type=float, default=None, help='run in classifacation mode with given cutoff instead of regression')
+    parser.add_argument('--classifcation', type=float, default=None,
+                        help='run in classifacation mode with given cutoff instead of regression')
     parser.add_argument('--amp', action='store_true', help='use amp fp16')
     parser.add_argument('--metric_plot_prefix', default=None, type=str, help='prefix for graphs for performance')
     parser.add_argument('--optimizer', default='adamw', type=str, help='optimizer to use',
@@ -65,8 +67,9 @@ def get_args():
 
 def trainer(model, optimizer, train_loader, test_loader, mode, epochs=5, classif=False):
     tracker = trackers.PytorchHistory()
-    lr_red = ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=30, cooldown=0, verbose=True, threshold=1e-4,
+    lr_red = ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=20, cooldown=0, verbose=True, threshold=1e-4,
                                min_lr=1e-8)
+    early_stopper = EarlyStopping(patience=50, delta=1e-4, verbose=True)
     model = model.to(device)
     for epochnum in range(epochs):
         train_loss = 0
@@ -75,7 +78,7 @@ def trainer(model, optimizer, train_loader, test_loader, mode, epochs=5, classif
         test_iters = 0
         model.train()
         if args.pb:
-            gen = tqdm(enumerate(train_loader))
+            gen = tqdm(enumerate(train_loader), total=int(len(train_loader.dataset) / train_loader.batch_size))
         else:
             gen = enumerate(train_loader)
         for i, (rnaseq, drugfeats, value) in gen:
@@ -98,7 +101,9 @@ def trainer(model, optimizer, train_loader, test_loader, mode, epochs=5, classif
                 pred = model(rnaseq, g, h)
 
             if classif:
-                mse_loss = torch.nn.functional.binary_cross_entropy_with_logits(pred, value, pos_weight=torch.FloatTensor([9.0]).to(device)).mean()
+                mse_loss = torch.nn.functional.binary_cross_entropy_with_logits(pred, value,
+                                                                                pos_weight=torch.FloatTensor([9.0]).to(
+                                                                                    device)).mean()
             else:
                 mse_loss = torch.nn.functional.mse_loss(pred, value).mean()
 
@@ -144,10 +149,14 @@ def trainer(model, optimizer, train_loader, test_loader, mode, epochs=5, classif
                 tracker.track_metric(pred.detach().cpu().numpy(), value.detach().cpu().numpy())
         tracker.log_loss(train_loss / train_iters, train=False)
         tracker.log_metric(internal=True, train=False)
-
-        lr_red.step(test_loss / test_iters)
         print("Epoch", epochnum, train_loss / train_iters, test_loss / test_iters, 'r2',
               tracker.get_last_metric(train=True), tracker.get_last_metric(train=False))
+
+        lr_red.step(test_loss / test_iters)
+        early_stopper(test_loss / test_iters)
+        if early_stopper.early_stop:
+            print("Early stopping!!!!")
+            break
 
     if args.g == 1:
         torch.save({'model_state': model.state_dict(),
@@ -188,7 +197,8 @@ def produce_preds_timing(model, loader, cells, drugs, mode, classif=False):
     return res
 
 
-def load_data_models(random_seed, split_on, mode, workers, batch_size, dropout_rate, make_models=True, data_escape=False, classif=None, use_attention=True):
+def load_data_models(random_seed, split_on, mode, workers, batch_size, dropout_rate, make_models=True,
+                     data_escape=False, classif=None, use_attention=True):
     print("Loading base frame. ")
     cell_frame = pd.read_pickle("data/cellpickle.pkl")
     base_frame = pd.read_pickle("data/rnaseq.pkl")
@@ -236,7 +246,6 @@ def load_data_models(random_seed, split_on, mode, workers, batch_size, dropout_r
     values = np.array(base_frame['auc_combo.AUC'], dtype=np.float32)[np.newaxis, :]
     drugs = np.array(base_frame['auc_combo.DRUG'])
     print("Done loading and splitting base frames...")
-
 
     smiles_frame = pd.read_csv("data/extended_combined_smiles")
     smiles_frame = smiles_frame.set_index('NAME')
@@ -312,16 +321,20 @@ def load_data_models(random_seed, split_on, mode, workers, batch_size, dropout_r
                 gframe[index] = get_dgl_graph(row['SMILES'])
             except AttributeError:
                 continue
-        train_dset = DescGraphDataset(cells[train_idx], cell_frame, (gframe, dframe), values[:, train_idx], drugs[train_idx], args.feature_dropout_rate)
-        test_dset = DescGraphDataset(cells[test_idx], cell_frame, (gframe, dframe), values[:, test_idx], drugs[test_idx], args.feature_dropout_rate)
+        train_dset = DescGraphDataset(cells[train_idx], cell_frame, (gframe, dframe), values[:, train_idx],
+                                      drugs[train_idx], args.feature_dropout_rate)
+        test_dset = DescGraphDataset(cells[test_idx], cell_frame, (gframe, dframe), values[:, test_idx],
+                                     drugs[test_idx], args.feature_dropout_rate)
 
         train_loader = DataLoader(train_dset, collate_fn=graph_collate, shuffle=True, num_workers=workers,
                                   batch_size=batch_size, **kwargs)
         test_loader = DataLoader(test_dset, collate_fn=graph_collate, shuffle=True, num_workers=workers,
                                  batch_size=batch_size, **kwargs)
-        model = basemodel.BaseModel(cell_frame.shape[1] - 1, dropout_rate, featureModel=(graphmodel.GCN, vectormodel.VectorModel),
+        model = basemodel.BaseModel(cell_frame.shape[1] - 1, dropout_rate,
+                                    featureModel=(graphmodel.GCN, vectormodel.VectorModel),
                                     intermediate_rep_drugs=128,
-                                    flen=(gframe[list(gframe.keys())[0]].ndata['atom_features'].shape[1], desc_data_frame.shape[1]))
+                                    flen=(gframe[list(gframe.keys())[0]].ndata['atom_features'].shape[1],
+                                          desc_data_frame.shape[1]))
     elif mode == 'image':
         frame = {}
 
@@ -348,8 +361,10 @@ def load_data_models(random_seed, split_on, mode, workers, batch_size, dropout_r
         for index, row in tqdm(smiles_frame.iterrows()):
             frame[index] = row['SMILES']
 
-        train_dset = SmilesDataset(cells[train_idx], cell_frame, frame, values[:, train_idx], drugs[train_idx], random_permutes=False)
-        test_dset = SmilesDataset(cells[test_idx], cell_frame, frame, values[:, test_idx], drugs[test_idx], random_permutes=False)
+        train_dset = SmilesDataset(cells[train_idx], cell_frame, frame, values[:, train_idx], drugs[train_idx],
+                                   random_permutes=False)
+        test_dset = SmilesDataset(cells[test_idx], cell_frame, frame, values[:, test_idx], drugs[test_idx],
+                                  random_permutes=False)
 
         train_loader = DataLoader(train_dset, shuffle=True, num_workers=workers, batch_size=batch_size, **kwargs)
         test_loader = DataLoader(test_dset, shuffle=True, num_workers=workers, batch_size=batch_size, **kwargs)
@@ -377,7 +392,9 @@ if __name__ == '__main__':
     train_loader, test_loader, cells, drugs, model, train_idx, test_idx = load_data_models(args.r, args.s, args.mode,
                                                                                            args.w, args.b,
                                                                                            args.dropout_rate,
-                                                                                           make_models=True, classif=args.classifcation, use_attention=args.use_attention)
+                                                                                           make_models=True,
+                                                                                           classif=args.classifcation,
+                                                                                           use_attention=args.use_attention)
     print("Done.")
 
     print("Starting trainer.")
@@ -423,8 +440,9 @@ if __name__ == '__main__':
     print("r2", metrics.r2_score(res[1], res[0]))
     print("mse", metrics.mean_squared_error(res[1], res[0]))
 
-    print("AUC with cutoff", metrics.roc_auc_score((res[1] <= 0.5).astype(np.int32) , (res[0] <= 0.5).astype(np.int32) ))
-    print("Acc with cutoff", metrics.accuracy_score((res[1] <= 0.5).astype(np.int32) , (res[0] <= 0.5).astype(np.int32) ))
-    print("BalAcc with cutoff", metrics.balanced_accuracy_score((res[1] <= 0.5).astype(np.int32) , (res[0] <= 0.5).astype(np.int32) ))
+    print("AUC with cutoff", metrics.roc_auc_score((res[1] <= 0.5).astype(np.int32), (res[0] <= 0.5).astype(np.int32)))
+    print("Acc with cutoff", metrics.accuracy_score((res[1] <= 0.5).astype(np.int32), (res[0] <= 0.5).astype(np.int32)))
+    print("BalAcc with cutoff",
+          metrics.balanced_accuracy_score((res[1] <= 0.5).astype(np.int32), (res[0] <= 0.5).astype(np.int32)))
 
     np.save(args.metric_plot_prefix + "preds.npy", res)
