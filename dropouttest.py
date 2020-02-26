@@ -45,6 +45,7 @@ def get_args():
     parser.add_argument('-r', type=int, default=32, help='random seed for splitting.')
     parser.add_argument('-g', type=int, default=1, help='use data parallel.')
     parser.add_argument('-pb', action='store_true')
+    parser.add_argument('--feature_dropout_rate', type=float, default=0.0)
     parser.add_argument('--use_attention', action='store_true', help='use or not attention for images')
     parser.add_argument('--classifcation', type=float, default=None, help='run in classifacation mode with given cutoff instead of regression')
     parser.add_argument('--amp', action='store_true', help='use amp fp16')
@@ -311,8 +312,8 @@ def load_data_models(random_seed, split_on, mode, workers, batch_size, dropout_r
                 gframe[index] = get_dgl_graph(row['SMILES'])
             except AttributeError:
                 continue
-        train_dset = DescGraphDataset(cells[train_idx], cell_frame, (gframe, dframe), values[:, train_idx], drugs[train_idx])
-        test_dset = DescGraphDataset(cells[test_idx], cell_frame, (gframe, dframe), values[:, test_idx], drugs[test_idx])
+        train_dset = DescGraphDataset(cells[train_idx], cell_frame, (gframe, dframe), values[:, train_idx], drugs[train_idx], args.feature_dropout_rate)
+        test_dset = DescGraphDataset(cells[test_idx], cell_frame, (gframe, dframe), values[:, test_idx], drugs[test_idx], args.feature_dropout_rate)
 
         train_loader = DataLoader(train_dset, collate_fn=graph_collate, shuffle=True, num_workers=workers,
                                   batch_size=batch_size, **kwargs)

@@ -189,14 +189,14 @@ class GraphDataset(Dataset):
         return self.cells.shape[0]
 
 class DescGraphDataset(Dataset):
-    def __init__(self, cells, rnaseq, g, values, drugs):
+    def __init__(self, cells, rnaseq, g, values, drugs, ft_rate):
         self.graphs, self.descs = g
         self.cells = cells
         self.rnaseq = rnaseq
         self.values = values
         self.drugs = drugs
 
-        self.random_filter_descrip = 0.2
+        self.random_filter_descrip = ft_rate
 
     def __getitem__(self, item):
         gate1 = torch.from_numpy(np.array([1])).float()
